@@ -3,6 +3,7 @@
 import random
 from collections import Counter
 import sys
+import pickle
 
 class Token:
     def __init__(self, pos, word):
@@ -111,16 +112,21 @@ def main():
     trainingTokens = tokenizeSet(trainingSet)
     model = CountHMM()
     model.getCounts(trainingTokens)
-        
-    with open("countmodel.dat", "w") as outFile:
-        outFile.write("<A>")
-        A  = model.calcTransitionProbs()
-        B = model.calcEmissionProbs() 
-        for bigram in A:
-            outFile.write("{("+ bigram[0] + ", " + bigram[1]+ "):" + str(A[bigram]) + "}\n")
-        outFile.write("<B>")
-        for wordTag in B:
-            outFile.write("(" + wordTag[0] + ", " + wordTag[1] + ") :" + str(B[wordTag])+ "}\n")
 
-    print("Saving to model.dat")
+    countModel = {}
+        
+    with open("countmodel.dat", "wb") as outFile:
+        #outFile.write("<A>")
+
+        countModel["aMatrix"] = model.calcTransitionProbs()
+        countModel["bMatrix"] = model.calcEmissionProbs() 
+        pickle.dump(countModel, outFile)
+        # for bigram in A:
+        #     outFile.write("{("+ bigram[0] + ", " + bigram[1]+ "):" + str(A[bigram]) + "}\n")
+        # outFile.write("<B>")
+        # for wordTag in B:
+        #     outFile.write("{(" + wordTag[0] + ", " + wordTag[1] + ") :" + str(B[wordTag])+ "}\n")
+
+
+        print("Saving to model.dat")
 main()
