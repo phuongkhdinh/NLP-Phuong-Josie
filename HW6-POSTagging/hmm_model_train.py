@@ -11,12 +11,12 @@ import pickle
 def forward(A, B, states, obs):
     T = len(obs)
     N = len(states)
-    alpha = [{} for i in range(T+2)]
+    alpha = [{} for i in range(T)]
     for s in states:
 
         #TODO: FIX WITH UNK????
         aVal = 0 if ("START", s) not in A else A[("START", s)]
-        bVal = 0 if (obs[0], s) not in B else B[(obs[0], s)]
+        bVal = 0 if (obs[0], s) not in B else B[(obs[0], s)] # if Run on corpus, need to handle Unknown here
 
         alpha[0][s] = aVal*bVal
     #print("______")
@@ -123,11 +123,6 @@ def forwardBackward(Obs, V, Q, A, B):
                     denomenator += gamma[t][j]
                 bhat[(vK, j)] = numerator/denomenator
     return ahat, bhat
-
-
-
-
-
 
 
 
