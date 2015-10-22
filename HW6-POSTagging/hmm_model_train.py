@@ -88,29 +88,34 @@ def forwardBackward(Obs, V, Q, A, B):
     aHat = A
     bHat = B
 
-    i = 100
-    while not converged(i):
-        i -= 1
+    count = 100
+    while not converged(count):
+        count -= 1
 
         #E-Step
-        for t in range(T):
+        for t in range(T-1):
             for j in Q:
                 gamma[t][j] = (alpha[t][j]*beta[t][j])/alpha[-1]["END"]
                 for i in Q:
-                    zeta[(i,j)] = (alpha[t][i]*aHat[i][j]*bHat[(obs[t+1],j)]*beta[t+1][j])/alpha[T-1]["END"]
+                    # print((alpha[t][i]))
+                    # print(aHat[(i,j)])
+                    # print(bHat[(Obs[t+1],j)])
+                    # print(beta[t+1][j])
+                    # print(alpha[T-1]["END"])
+                    zeta[t][(i,j)] = (alpha[t][i]*aHat[(i,j)]*bHat[(Obs[t+1],j)]*beta[t+1][j])/alpha[T-1]["END"]
         #M-Step
         #ahat i j
         for i in Q:
             for j in Q:
                 numerator = 0
-                denomenator = 0
+                denomenator = 0.000000000000000000000000000000000001
                 for t in range(T-1):
                     numerator += zeta[t][(i,j)]
                     minidenom = 0
-                    for k in states:
+                    for k in Q:
                         minidenom += zeta[t][(i,k)]
                     denomenator += minidenom
-                ahat[(i,j)] = numerator/denomenator
+                aHat[(i,j)] = numerator/denomenator
 
         #bhat
         for j in Q:
@@ -118,11 +123,12 @@ def forwardBackward(Obs, V, Q, A, B):
                 numerator = 0
                 denomenator = 0
                 for t in range(T):
-                    if obs[t] == vK:
+                    if Obs[t] == vK:
                         numerator += gamma[t][j]
+                    print(denomenator, gamma[t][i])
                     denomenator += gamma[t][j]
-                bhat[(vK, j)] = numerator/denomenator
-    return ahat, bhat
+                bHat[(vK, j)] = numerator/denomenator
+    return aHat, bHat
 
 
 
@@ -130,7 +136,7 @@ def forwardBackward(Obs, V, Q, A, B):
 
 def main():
     #modelFile = sys.argv[1]
-    modelFile = "countModel.dat"
+    modelFile = "countmodel_FWBW"
     # for line in sys.stdin:
     #     obs = line.split(" ")
 
