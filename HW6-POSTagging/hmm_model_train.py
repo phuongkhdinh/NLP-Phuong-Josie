@@ -9,17 +9,17 @@ from math import log, exp
 # B = word, tag : prob
 # states = dict of states
 
-_NINF = float('-inf')
+_NEG_INF = float('-inf')
 def log_add(values):
     """
     Unlog values, Adds the values, returning the log of the addition.
     """
     x = max(values)
-    if x > _NINF:
-        sum_diffs = 0
+    if x > _NEG_INF:
+        sumDiffs = 0
         for value in values:
-            sum_diffs += exp(value - x)
-        return x + log(sum_diffs)
+            sumDiffs += exp(value - x)
+        return x + log(sumDiffs)
     else:
         return x
 
@@ -37,15 +37,11 @@ def forward(A, B, states, obs):
         aVal = A[('START', s)]
         bVal = B[(obs[0], s)]
         if aVal!= 0 and bVal != 0:
-            alpha[0][s] = aVal + aVal
-        #print(A)
-            print(s, alpha[0][s])
-    #print("______")
-    #print(A)
-    #print(alpha[0])
+            alpha[0][s] = aVal + bVal
+
     for t in range(1, T):
         for s in states:
-            sum = _NINF
+            sum = _NEG_INF
             for sPrime in states:
                 #aVal = 0.0001 if (sPrime,s) not in A else A[(sPrime,s)]
                 #bVal = 0.0001 if (obs[t], s) not in B else B[(obs[t], s)]
@@ -58,7 +54,7 @@ def forward(A, B, states, obs):
             bVal = B[(obs[t], s)]
             alpha[t][s] = sum + bVal
 
-    sum = _NINF
+    sum = _NEG_INF
     for s in states:
         if s in alpha[T-1]:
             aVal = A[(s, "END")]
@@ -66,7 +62,6 @@ def forward(A, B, states, obs):
     alpha[T-1]["END"] = sum
     # if alpha[T-1]["END"] == 0:
     #     print(alpha[T-1])
-    print(alpha)
     return alpha
 
 
@@ -78,7 +73,7 @@ def backward(A, B, states, obs):
         beta[T-1][i] = A[(i, "END")]
     for t in range(T-2, -1, -1):
         for i in states:
-            sum = _NINF
+            sum = _NEG_INF
             for j in states:
                 aVal = A[(i,j)]
                 bVal = B[(obs[t+1], j)]
@@ -92,9 +87,8 @@ def backward(A, B, states, obs):
 
         sum = log_add([sum, aVal+bVal+beta[0][j]])
     beta[0]["START"] = sum
-    print("----------")
-    print(beta)
-    return beta
+    # WHY THE HECK IS IT POSITVE!!!!!!!!!
+    return
 
 
 
@@ -107,6 +101,7 @@ def forwardBackward(Obs, V, Q, A, B):
     alpha = forward(A, B, Q, Obs)
     print(alpha)
     beta = backward(A, B, Q, Obs)
+    print(beta)
     T = len(Obs)
     N = len(Q)
 
@@ -170,11 +165,10 @@ def main():
     # for line in sys.stdin:
     #     obs = line.split(" ")
 
-    with open('countmodel_FWBW.dat', 'rb') as handle:
+    with open('countmodel.dat', 'rb') as handle:
         matrixes = pickle.loads(handle.read())
     A = Counter(matrixes["aMatrix"])
     B = Counter(matrixes["bMatrix"])
-
 
     stateGraph = []
     for state in A:
