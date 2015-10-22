@@ -1,6 +1,8 @@
 #hmm_model_train.py
 #By Josie and Phuong
 from collections import Counter
+import sys
+import pickle
 
 # A = tag1, tag2 : prob
 # B = word, tag : prob
@@ -13,6 +15,7 @@ def forward(A, B, states, obs):
     T = len(obs)
     N = len(states)
     alpha = [{}]*(T+2)
+    print(alpha)
     for s in states:
 
         #TODO: FIX WITH UNK????
@@ -20,43 +23,44 @@ def forward(A, B, states, obs):
         bVal = 0 if (obs[0], s) not in B else B[(obs[0], s)]
 
         alpha[0][s] = aVal*bVal
-    for t in range(1, N):
+    for t in range(1, T):
         for s in states:
             sum = 0
             for sPrime in states:
                 aVal = 0 if (sPrime,s) not in A else A[(sPrime,s)]
                 bVal = 0 if (obs[t], s) not in B else B[(obs[t], s)]
-                sum += alpha[(t-1, sPrime)]*aVal*bVal
+                sum += alpha[t-1][sPrime]*aVal*bVal
 
             alpha[t][s] = sum
     sum = 0
     for s in states:
         aVal = 0 if (s, "END") not in A else A[(s, "END")]
-        sum += alpha[N-1][s]*aVal
-    alpha[N-1]["END"] = sum
+        sum += alpha[T-1][s]*aVal
+    alpha[T-1]["END"] = sum
+    print(A)
     return alpha
 
 
-def backward(A, states, obs):
+def backward(A, B, states, obs):
     N = len(states)
     T = len(obs)
     beta = [{}]*T
     for i in states:
         beta[T-1][i] = A[(i, "END")]
-    for t in range(1, T):
+    for t in range(1, T-1):
         for i in states:
             sum = 0
             for j in states:
                 aVal = 0 if (i,j) not in A else A[(i,j)]
                 bVal = 0 if (obs[t+1], j) not in B else B[(obs[t+1], j)]
-                sum += beta[(t+1, j)]*aVal*bVal
+                sum += beta[t+1][j]*aVal*bVal
 
             beta[t][i] = sum
     sum = 0
     for j in states:
         aVal = 0 if ("START",j) not in A else A[("START",j)]
         bVal = 0 if ("<s>", j) not in B else B[("<s>", j)]
-        sum += beta[(t+1, j)]*aVal*bVal*beta[0][j]
+        sum += beta[t+1][j]*aVal*bVal*beta[0][j]
     beta[0]["START"] = sum
     return beta
 
@@ -69,7 +73,7 @@ def converged(i):
 # O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
 def forwardBackward(Obs, V, Q, A, B):
     alpha = forward(A, B, Q, Obs)
-    beta = backward(A, Q, Obs)
+    beta = backward(A, B, Q, Obs)
     T = len(Obs)
     N = len(Q)
 
@@ -124,7 +128,32 @@ def forwardBackward(Obs, V, Q, A, B):
 
 
 def main():
+    #modelFile = sys.argv[1]
+    modelFile = "countModel.dat"
+    # for line in sys.stdin:
+    #     obs = line.split(" ")
 
+    with open('countmodel.dat', 'rb') as handle:
+        matrixes = pickle.loads(handle.read())
+    A = Counter(matrixes["aMatrix"])
+    B = Counter(matrixes["bMatrix"])
+
+
+    stateGraph = []
+    for state in A:
+        if state[0] not in stateGraph:
+            stateGraph.append(state[0])
+        if state[1] not in stateGraph:
+            stateGraph.append(state[1])
+    #stateGraph.remove("START")
+    #stateGraph.remove("END")
+    obs = "The cat was orange .".split(" ")
+    V = set(stateGraph)
+    Q = stateGraph
+    ahat, bhat = forwardBackward(obs, V, Q, A, B)
+    print(ahat)
+    print("______")
+    print(bhat)
 
 
 main()
