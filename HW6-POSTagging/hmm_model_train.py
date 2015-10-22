@@ -51,7 +51,7 @@ def backward(A, B, states, obs):
     beta = [{} for i in range(T)]
     for i in states:
         beta[T-1][i] = A[(i, "END")]
-    for t in range(T-2, 0, -1):
+    for t in range(T-2, -1, -1):
         for i in states:
             sum = 0
             for j in states:
@@ -63,12 +63,11 @@ def backward(A, B, states, obs):
     sum = 0
     for j in states:
         aVal = 0 if ("START",j) not in A else A[("START",j)]
-        bVal = 0 if ("<s>", j) not in B else B[("<s>", j)]
-        try:
-            sum += beta[t+1][j]*aVal*bVal*beta[0][j]
-        except:
-            print("DD")
+        bVal = 0 if (obs[0], j) not in B else B[(obs[0], j)]
+
+        sum += aVal*bVal*beta[0][j]
     beta[0]["START"] = sum
+
     return beta
 
 
@@ -152,9 +151,9 @@ def main():
             stateGraph.append(state[0])
         if state[1] not in stateGraph:
             stateGraph.append(state[1])
-    #stateGraph.remove("START")
-    #stateGraph.remove("END")
-    obs = "The cat was orange .".lower().split(" ")
+    stateGraph.remove("START")
+    stateGraph.remove("END")
+    obs = "The dog was orange .".lower().split(" ")
     V = set(stateGraph)
     Q = stateGraph
     ahat, bhat = forwardBackward(obs, V, Q, A, B)
