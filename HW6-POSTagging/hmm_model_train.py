@@ -30,12 +30,14 @@ def forward(A, B, states, obs):
     alpha = [{} for i in range(T)]
 
     for s in states:
-
+        firstWord = obs[0]
+        if B[(firstWord, s)] == 0: #We have the first word with this tag
+            firstWord = "<UNK>"
         #TODO: FIX WITH UNK????
         #aVal = 0.0001 if ("START", s) not in A else A[("START", s)]
         #bVal = 0.0001 if (obs[0], s) not in B else B[(obs[0], s)] # if Run on corpus, need to handle Unknown here
         aVal = A[('START', s)]
-        bVal = B[(obs[0], s)]
+        bVal = B[(firstWord, s)]
         if aVal!= 0 and bVal != 0:
             alpha[0][s] = aVal + bVal
 
@@ -51,7 +53,10 @@ def forward(A, B, states, obs):
                 #print(alpha[t-1][sPrime], aVal, bVal)
                 # if bVal == 0:
                 #     print(obs[t], s)
-            bVal = B[(obs[t], s)]
+            word = obs[t]
+            if B[(word, s)] == 0:
+                word = "<UNK>"
+            bVal = B[(word, s)]
             alpha[t][s] = sum + bVal
 
     sum = _NEG_INF
@@ -169,6 +174,7 @@ def main():
         matrixes = pickle.loads(handle.read())
     A = Counter(matrixes["aMatrix"])
     B = Counter(matrixes["bMatrix"])
+    print(B)
 
     stateGraph = []
     for state in A:
@@ -178,11 +184,11 @@ def main():
             stateGraph.append(state[1])
     stateGraph.remove("START")
     stateGraph.remove("END")
-    obs = "But Mr. Kennedy had become convinced that a personal confrontation is good .".lower().split(" ")
+    obs = "The dog is in house .".lower().split(" ")
     V = set(stateGraph)
     Q = stateGraph
     aHat, bHat = forwardBackward(obs, V, Q, A, B)
-
+    print(bHat)
     hmmCountModel = {}
         
     with open("trainmodel.dat", "wb") as outFile:
