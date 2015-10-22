@@ -93,8 +93,6 @@ def backward(A, B, states, obs):
             sum = log_add([sum, aVal+bVal+beta[0][j]])
 
     beta[0]["START"] = sum
-    #print(sum)
-    #WHY THE HECK IS IT POSITVE!!!!!!!!!
     return beta
 
 
@@ -106,9 +104,7 @@ def converged(i):
 # O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
 def forwardBackward(Obs, V, Q, A, B):
     alpha = forward(A, B, Q, Obs)
-    #print(alpha)
     beta = backward(A, B, Q, Obs)
-    print(beta)
     T = len(Obs)
     N = len(Q)
 
@@ -124,16 +120,18 @@ def forwardBackward(Obs, V, Q, A, B):
         #E-Step
         for t in range(T-1):
             for j in Q:
-                gamma[t][j] = (alpha[t][j]*beta[t][j])/alpha[-1]["END"]
-                #print(gamma[t][j])
-                for i in Q:
-                    # print((alpha[t][i]))
-                    # print(aHat[(i,j)])
-                    # print(bHat[(Obs[t+1],j)])
-                    # print(beta[t+1][j])
-                    # print(alpha[T-1]["END"])
-                    zeta[t][(i,j)] = (alpha[t][i]*aHat[(i,j)]*bHat[(Obs[t+1],j)]*beta[t+1][j])/alpha[T-1]["END"]
-                    #print(zeta[t][(i,j)])
+                if j in alpha[t] and j in beta[t]:
+                    print(beta[t][j])
+                    gamma[t][j] = alpha[t][j] + beta[t][j] - alpha[-1]["END"]
+                    #print(gamma[t][j])
+                    for i in Q:
+                        print((alpha[t][i]))
+                        print(aHat[(i,j)])
+                        print(bHat[(Obs[t+1],j)])
+                        print(beta[t+1][j])
+                        print(alpha[T-1]["END"])
+                        zeta[t][(i,j)] = alpha[t][i] + aHat[(i,j)] + bHat[(Obs[t+1],j)] + beta[t+1][j] - alpha[T-1]["END"]
+                        #print(zeta[t][(i,j)])
         #M-Step
         #ahat i j
         for i in Q:
