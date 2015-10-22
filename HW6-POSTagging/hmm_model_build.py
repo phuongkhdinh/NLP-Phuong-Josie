@@ -24,6 +24,8 @@ class CountHMM:
         self.bigramPOSCounts = Counter()
         self.unigramPOSCounts = Counter()
         self.wordWithTagCounts = Counter()
+        self.words = Counter()
+        self.words["<UNK>"] = 0
         self.totalBigrams = 0
         self.totalUnigrams = 0
         pos1 = ""
@@ -32,10 +34,15 @@ class CountHMM:
         for token in tokens:
             self.totalBigrams += (len(token) - 1)
             self.totalUnigrams += len(token)
-            for i in range(len(token) - 1):
+            for i in range(len(token) - 2):
                 pos1 = token[i].pos
                 pos2 = token[i+1].pos
                 obs = token[i].word
+                if obs not in self.words:
+                    self.words["<UNK>"] += 1
+                    self.words[obs] = 0
+                    obs = "<UNK>"
+
                 if pos1 in self.unigramPOSCounts:
                     self.unigramPOSCounts[pos1] += 1
                     self.wordWithTagCounts[(obs, pos1)] += 1
@@ -46,12 +53,27 @@ class CountHMM:
                     self.bigramPOSCounts[(pos1, pos2)] += 1
                 else:
                     self.bigramPOSCounts[(pos1, pos2)] = 1
+
+            # #do last token
+            # obs = token[-1].word
+            # if obs not in self.words:
+            #     self.words["<UNK>"] += 1
+            #     self.words[obs] = 0
+            #     obs = "<UNK>"
+            # if pos2 in self.unigramPOSCounts:
+            #     self.unigramPOSCounts[pos2] += 1
+            #     self.wordWithTagCounts[(obs, pos2)] += 1
+            # else:
+            #     self.unigramPOSCounts[pos2] = 1
+            #     self.wordWithTagCounts[(obs, pos2)] = 1
+
             if pos2 == 'END':
                 self.wordWithTagCounts[('</s>', pos2)] += 1
                 if pos2 in self.unigramPOSCounts:
                     self.unigramPOSCounts[pos2] += 1
                 else:
                     self.unigramPOSCounts[pos2] = 1
+
 
     def calcTransitionProbs(self):
         self.transitionProbs = {}        
@@ -94,6 +116,7 @@ def tokenizeSet(set):
 
 def tokenize(sentence):
     tokens = [Token("START", "<s>")]
+    tokens = []
     words = (sentence.split(" "))
     for word in words[:-1]:
         tkn = word.rsplit("/", 1)
@@ -108,7 +131,7 @@ def main():
     print("Calculating HMM probabilities....")
     
     #TODO: COMMANDLINE ARG
-    trainingSet, testSet = extractSets(sys.argv[1])
+    trainingSet, testSet = (extractSets("brown_tagged.dat"))#extractSets(sys.argv[1])
     trainingTokens = tokenizeSet(trainingSet)
     model = CountHMM()
     model.getCounts(trainingTokens)
@@ -119,7 +142,7 @@ def main():
         #outFile.write("<A>")
 
         countModel["aMatrix"] = model.calcTransitionProbs()
-        countModel["bMatrix"] = model.calcEmissionProbs() 
+        countModel["bMatrix"] = model.calcEmissionProbs()
         pickle.dump(countModel, outFile)
         # for bigram in A:
         #     outFile.write("{("+ bigram[0] + ", " + bigram[1]+ "):" + str(A[bigram]) + "}\n")
