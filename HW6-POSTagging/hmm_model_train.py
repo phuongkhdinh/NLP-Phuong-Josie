@@ -15,6 +15,8 @@ def log_add(values):
     Unlog values, Adds the values, returning the log of the addition.
     """
     x = max(values)
+    if x>0:
+        print("HOO")
     if x > _NEG_INF:
         sumDiffs = 0
         for value in values:
@@ -70,25 +72,30 @@ def backward(A, B, states, obs):
     T = len(obs)
     beta = [{} for i in range(T)]
     for i in states:
-        beta[T-1][i] = A[(i, "END")]
+        if A[(i, "END")] != 0:
+            beta[T-1][i] = A[(i, "END")]
     for t in range(T-2, -1, -1):
         for i in states:
             sum = _NEG_INF
             for j in states:
                 aVal = A[(i,j)]
                 bVal = B[(obs[t+1], j)]
-                sum = log_add([sum, beta[t+1][j]+aVal+bVal])
+                if j in beta[t+1]:
+                    sum = log_add([sum, beta[t+1][j]+aVal+bVal])
+
 
             beta[t][i] = sum
-    sum = 0
+    sum = _NEG_INF
     for j in states:
         aVal = A[("START",j)]
         bVal = B[(obs[0], j)]
+        if j in beta[0]:
+            sum = log_add([sum, aVal+bVal+beta[0][j]])
 
-        sum = log_add([sum, aVal+bVal+beta[0][j]])
     beta[0]["START"] = sum
-    # WHY THE HECK IS IT POSITVE!!!!!!!!!
-    return
+    #print(sum)
+    #WHY THE HECK IS IT POSITVE!!!!!!!!!
+    return beta
 
 
 
@@ -99,7 +106,7 @@ def converged(i):
 # O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
 def forwardBackward(Obs, V, Q, A, B):
     alpha = forward(A, B, Q, Obs)
-    print(alpha)
+    #print(alpha)
     beta = backward(A, B, Q, Obs)
     print(beta)
     T = len(Obs)
