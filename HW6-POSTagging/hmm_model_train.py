@@ -78,18 +78,18 @@ def backward(A, B, states, obs):
         for i in states:
             sum = _NEG_INF
             for j in states:
-                aVal = A[(i,j)]
-                bVal = B[(obs[t+1], j)]
                 if j in beta[t+1]:
+                    aVal = A[(i,j)]
+                    bVal = B[(obs[t+1], j)]
                     sum = log_add([sum, beta[t+1][j]+aVal+bVal])
 
 
             beta[t][i] = sum
     sum = _NEG_INF
     for j in states:
-        aVal = A[("START",j)]
-        bVal = B[(obs[0], j)]
         if j in beta[0]:
+            aVal = A[("START",j)]
+            bVal = B[(obs[0], j)]
             sum = log_add([sum, aVal+bVal+beta[0][j]])
 
     beta[0]["START"] = sum
