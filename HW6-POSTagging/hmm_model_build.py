@@ -135,7 +135,7 @@ def main():
     print("Calculating HMM probabilities....")
     
     #TODO: COMMANDLINE ARG
-    trainingSet, testSet = (extractSets("brown_tagged.dat"))#extractSets(sys.argv[1])
+    trainingSet, testSet = extractSets(sys.argv[1])#(extractSets("brown_tagged.dat"))#
     trainingTokens = tokenizeSet(trainingSet)
     model = CountHMM()
     model.getCounts(trainingTokens)

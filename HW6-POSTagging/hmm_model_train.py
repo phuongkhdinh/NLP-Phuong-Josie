@@ -15,8 +15,6 @@ def log_add(values):
     Unlog values, Adds the values, returning the log of the addition.
     """
     x = max(values)
-    if x>0:
-        print("HOO")
     if x > _NEG_INF:
         sumDiffs = 0
         for value in values:
@@ -98,8 +96,8 @@ def backward(A, B, states, obs):
 
 
 
-def converged(i):
-    return (1000-i == 0)
+def notConverged(i):
+    return (i<1000)
 
 # O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
 def forwardBackward(Obs, V, Q, A, B):
@@ -113,62 +111,59 @@ def forwardBackward(Obs, V, Q, A, B):
     aHat = A
     bHat = B
 
-    count = 100
-    while not converged(count):
-        count -= 1
+    count = 0
+    while notConverged(count):
+        count += 1
 
         #E-Step
         for t in range(T-1):
             for j in Q:
                 if j in alpha[t] and j in beta[t]:
-                    print(beta[t][j])
+                    #print(beta[t][j])
                     gamma[t][j] = alpha[t][j] + beta[t][j] - alpha[-1]["END"]
                     #print(gamma[t][j])
                     for i in Q:
-                        print((alpha[t][i]))
-                        print(aHat[(i,j)])
-                        print(bHat[(Obs[t+1],j)])
-                        print(beta[t+1][j])
-                        print(alpha[T-1]["END"])
-                        zeta[t][(i,j)] = alpha[t][i] + aHat[(i,j)] + bHat[(Obs[t+1],j)] + beta[t+1][j] - alpha[T-1]["END"]
+                        if i in alpha[t] and j in beta[t+1]:
+                            # print((alpha[t][i]))
+                            # print(aHat[(i,j)])
+                            # print(bHat[(Obs[t+1],j)])
+                            # print(beta[t+1][j])
+                            # print(alpha[T-1]["END"])
+                            zeta[t][(i,j)] = alpha[t][i] + aHat[(i,j)] + bHat[(Obs[t+1],j)] + beta[t+1][j] - alpha[T-1]["END"]
                         #print(zeta[t][(i,j)])
         #M-Step
         #ahat i j
         for i in Q:
             for j in Q:
-                numerator = 0
-                denomenator = 0
+                numerator = _NEG_INF
+                denomenator = _NEG_INF
                 for t in range(T-1):
-                    numerator += zeta[t][(i,j)]
-                    minidenom = 0
-                    for k in Q:
-                        #print(zeta[t][(i,k)])
-                        minidenom += zeta[t][(i,k)]
-                    denomenator += minidenom
-                aHat[(i,j)] = numerator/denomenator
+                    if (i,j) in zeta[t]:
+                        numerator = log_add([numerator, zeta[t][(i,j)]])
+                        minidenom = _NEG_INF
+                        for k in Q:
+                            #print(zeta[t][(i,k)])
+                            if (i,k) in zeta[t]:
+                                minidenom = log_add([minidenom, zeta[t][(i,k)]])
+                        denomenator = log_add([denomenator, minidenom])
+                aHat[(i,j)] = numerator-denomenator
 
         #bhat
         for j in Q:
             for vK in Obs:
-                numerator = 0
-                denomenator = 0
+                numerator = _NEG_INF
+                denomenator = _NEG_INF
                 for t in range(T):
-                    if Obs[t] == vK:
-                        numerator += gamma[t][j]
-                    print(denomenator, gamma[t][i])
-                    denomenator += gamma[t][j]
-                bHat[(vK, j)] = numerator/denomenator
+                    if j in gamma[t]:
+                        if Obs[t] == vK:
+                            numerator = log_add([numerator, gamma[t][j]])
+                        #print(denomenator, gamma[t][i])
+                        denomenator = log_add([denomenator, gamma[t][j]])
+                bHat[(vK, j)] = numerator - denomenator
     return aHat, bHat
 
-
-
-
-
 def main():
-    #modelFile = sys.argv[1]
-    modelFile = "countmodel"
-    # for line in sys.stdin:
-    #     obs = line.split(" ")
+    print("Training in process. Please wait...")
 
     with open('countmodel.dat', 'rb') as handle:
         matrixes = pickle.loads(handle.read())
@@ -183,13 +178,21 @@ def main():
             stateGraph.append(state[1])
     stateGraph.remove("START")
     stateGraph.remove("END")
-    obs = "The dog was orange .".lower().split(" ")
+    obs = "But Mr. Kennedy had become convinced that a personal confrontation is good .".lower().split(" ")
     V = set(stateGraph)
     Q = stateGraph
-    ahat, bhat = forwardBackward(obs, V, Q, A, B)
-    print(ahat)
-    print("______")
-    print(bhat)
+    aHat, bHat = forwardBackward(obs, V, Q, A, B)
 
+    hmmCountModel = {}
+        
+    with open("trainmodel.dat", "wb") as outFile:
+        #outFile.write("<A>")
+
+        hmmCountModel["aMatrix"] = aHat
+        hmmCountModel["bMatrix"] = bHat
+        pickle.dump(hmmCountModel, outFile)
+
+
+        print("Training completed. Saving to model.dat")
 
 main()

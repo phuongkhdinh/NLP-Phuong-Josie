@@ -70,7 +70,7 @@ def main():
 		matrixes = pickle.loads(handle.read())
 	aMatrix = matrixes["aMatrix"]
 	bMatrix = matrixes["bMatrix"]
-
+	print(aMatrix)
 
 	stateGraph = []
 	for state in aMatrix:
