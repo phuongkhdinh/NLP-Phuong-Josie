@@ -135,7 +135,7 @@ def main():
     print("Calculating HMM probabilities....")
     
     #TODO: COMMANDLINE ARG
-    trainingSet, testSet = extractSets(sys.argv[1])#(extractSets("brown_tagged.dat"))#
+    trainingSet, testSet = extractSets("brown_tagged.dat") # extractSets(sys.argv[1])#
     trainingTokens = tokenizeSet(trainingSet)
     model = CountHMM()
     model.getCounts(trainingTokens)
@@ -147,7 +147,9 @@ def main():
 
         countModel["aMatrix"] = model.calcTransitionProbs()
         countModel["bMatrix"] = model.calcEmissionProbs()
-        print(countModel["bMatrix"])
+        countModel["states"] = model.unigramPOSCounts
+        countModel["vocab"] = model.words
+        #print(countModel["bMatrix"])
         pickle.dump(countModel, outFile)
         # for bigram in A:
         #     outFile.write("{("+ bigram[0] + ", " + bigram[1]+ "):" + str(A[bigram]) + "}\n")

@@ -97,6 +97,7 @@ def backward(A, B, states, obs):
 
 
 def notConverged(i):
+    print(i)
     return (i<1000)
 
 # O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
@@ -162,25 +163,56 @@ def forwardBackward(Obs, V, Q, A, B):
                 bHat[(vK, j)] = numerator - denomenator
     return aHat, bHat
 
+
+
+#TODO: UNK
+# Steps:
+# init A, B
+# Iterate until convergence:
+#     init ahat, bhat = A, B
+#     for each obs in browncorpus:
+#         get alpha, beta
+#         get gamma, zeta
+#         using gamma, zeta, a, b, change ahat, bhat
+#     normalize ahat, bhat to be A, B
+
+
 def main():
     print("Training in process. Please wait...")
 
     with open('countmodel.dat', 'rb') as handle:
         matrixes = pickle.loads(handle.read())
-    A = Counter(matrixes["aMatrix"])
-    B = Counter(matrixes["bMatrix"])
+    states = matrixes["states"]
+    vocab = list(matrixes["vocab"].keys())
+    if "START" in states:
+        del states["START"]
+    if "END" in states:
+        del states["END"]
+    states = list(states.keys())
+    print(states)
+    bProb = log(1/(len(obs)))
+    aProb = log(1/(len(states)+1))
+    A = {}
+    B = {}
+    for state in states:
+        A[("START", state)] = aProb
 
-    stateGraph = []
-    for state in A:
-        if state[0] not in stateGraph:
-            stateGraph.append(state[0])
-        if state[1] not in stateGraph:
-            stateGraph.append(state[1])
-    stateGraph.remove("START")
-    stateGraph.remove("END")
+    for state1 in states:
+        for state2 in states:
+            A[(state1, state2)] = aProb
+    for state in states:
+        A[(state, "END")] = aProb
+
+    #word given tag
+    for word in vocab:
+        for state in states:
+            B[(word,state)] = bProb
+
+
     obs = "But Mr. Kennedy had become convinced that a personal confrontation is good .".lower().split(" ")
-    V = set(stateGraph)
-    Q = stateGraph
+    V = vocab
+    Q = states
+
     aHat, bHat = forwardBackward(obs, V, Q, A, B)
 
     hmmCountModel = {}
