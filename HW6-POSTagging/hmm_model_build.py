@@ -4,6 +4,7 @@ import random
 from collections import Counter
 import sys
 import pickle
+from math import log
 
 class Token:
     def __init__(self, pos, word):
@@ -34,10 +35,12 @@ class CountHMM:
         for token in tokens:
             self.totalBigrams += (len(token) - 1)
             self.totalUnigrams += len(token)
-            for i in range(len(token) - 2):
+            for i in range(len(token) - 1):
                 pos1 = token[i].pos
                 pos2 = token[i+1].pos
                 obs = token[i].word
+                #if obs == "START":
+                    #print("SHRW")
                 if obs not in self.words:
                     self.words["<UNK>"] += 1
                     self.words[obs] = 0
@@ -68,6 +71,7 @@ class CountHMM:
             #     self.wordWithTagCounts[(obs, pos2)] = 1
 
             if pos2 == 'END':
+                #print("huh")
                 self.wordWithTagCounts[('</s>', pos2)] += 1
                 if pos2 in self.unigramPOSCounts:
                     self.unigramPOSCounts[pos2] += 1
@@ -76,17 +80,17 @@ class CountHMM:
 
 
     def calcTransitionProbs(self):
-        self.transitionProbs = {}        
+        self.transitionProbs = Counter({})        
         for bigram in self.bigramPOSCounts:
 
-          self.transitionProbs[bigram] = self.bigramPOSCounts[bigram]/self.unigramPOSCounts[bigram[0]]
+          self.transitionProbs[bigram] = log(self.bigramPOSCounts[bigram]) - log(self.unigramPOSCounts[bigram[0]])
         #print(self.transitionProbs[bigram])
         return self.transitionProbs
           
     def calcEmissionProbs(self):       
-        self.emissionProbs = {}        
+        self.emissionProbs = Counter({})        
         for tuple in self.wordWithTagCounts:
-            self.emissionProbs[tuple] = self.wordWithTagCounts[tuple]/self.unigramPOSCounts[tuple[1]]
+            self.emissionProbs[tuple] = log(self.wordWithTagCounts[tuple]) - log(self.unigramPOSCounts[tuple[1]])
         #print(self.transitionProbs[bigram])
         return self.emissionProbs
         
@@ -116,7 +120,7 @@ def tokenizeSet(set):
 
 def tokenize(sentence):
     tokens = [Token("START", "<s>")]
-    tokens = []
+    #tokens = []
     words = (sentence.split(" "))
     for word in words[:-1]:
         tkn = word.rsplit("/", 1)
@@ -143,6 +147,7 @@ def main():
 
         countModel["aMatrix"] = model.calcTransitionProbs()
         countModel["bMatrix"] = model.calcEmissionProbs()
+        print(countModel["aMatrix"])
         pickle.dump(countModel, outFile)
         # for bigram in A:
         #     outFile.write("{("+ bigram[0] + ", " + bigram[1]+ "):" + str(A[bigram]) + "}\n")
