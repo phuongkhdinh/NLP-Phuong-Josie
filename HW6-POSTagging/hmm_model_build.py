@@ -9,7 +9,7 @@ from math import log
 class Token:
     def __init__(self, pos, word):
         self.pos = pos
-        self.word = word
+        self.word = word.lower()
 class CountHMM:
     def __init__(self):
         return
@@ -147,7 +147,7 @@ def main():
 
         countModel["aMatrix"] = model.calcTransitionProbs()
         countModel["bMatrix"] = model.calcEmissionProbs()
-        print(countModel["aMatrix"])
+        print(countModel["bMatrix"])
         pickle.dump(countModel, outFile)
         # for bigram in A:
         #     outFile.write("{("+ bigram[0] + ", " + bigram[1]+ "):" + str(A[bigram]) + "}\n")
