@@ -78,21 +78,22 @@ def backward(A, B, states, obs):
         beta[T-1][i] = A[(i, "END")]
     for t in range(T-2, -1, -1):
         for i in states:
-            sum = 0
+            sum = _NINF
             for j in states:
-                aVal = 0 if (i,j) not in A else A[(i,j)]
-                bVal = 0 if (obs[t+1], j) not in B else B[(obs[t+1], j)]
-                sum += beta[t+1][j]*aVal*bVal
+                aVal = A[(i,j)]
+                bVal = B[(obs[t+1], j)]
+                sum = log_add([sum, beta[t+1][j]+aVal+bVal])
 
             beta[t][i] = sum
     sum = 0
     for j in states:
-        aVal = 0 if ("START",j) not in A else A[("START",j)]
-        bVal = 0 if (obs[0], j) not in B else B[(obs[0], j)]
+        aVal = A[("START",j)]
+        bVal = B[(obs[0], j)]
 
-        sum += aVal*bVal*beta[0][j]
+        sum = log_add([sum, aVal+bVal+beta[0][j]])
     beta[0]["START"] = sum
-
+    print("----------")
+    print(beta)
     return beta
 
 
