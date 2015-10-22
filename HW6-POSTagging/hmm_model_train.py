@@ -9,13 +9,9 @@ import pickle
 # states = dict of states
 
 def forward(A, B, states, obs):
-    aHat = A
-    bHat = B
-
     T = len(obs)
     N = len(states)
-    alpha = [{}]*(T+2)
-    print(alpha)
+    alpha = [{} for i in range(T+2)]
     for s in states:
 
         #TODO: FIX WITH UNK????
@@ -23,6 +19,9 @@ def forward(A, B, states, obs):
         bVal = 0 if (obs[0], s) not in B else B[(obs[0], s)]
 
         alpha[0][s] = aVal*bVal
+    #print("______")
+    #print(A)
+    #print(alpha[0])
     for t in range(1, T):
         for s in states:
             sum = 0
@@ -30,24 +29,29 @@ def forward(A, B, states, obs):
                 aVal = 0 if (sPrime,s) not in A else A[(sPrime,s)]
                 bVal = 0 if (obs[t], s) not in B else B[(obs[t], s)]
                 sum += alpha[t-1][sPrime]*aVal*bVal
+                #print(alpha[t-1][sPrime], aVal, bVal)
+                # if bVal == 0:
+                #     print(obs[t], s)
 
             alpha[t][s] = sum
+
     sum = 0
     for s in states:
         aVal = 0 if (s, "END") not in A else A[(s, "END")]
         sum += alpha[T-1][s]*aVal
     alpha[T-1]["END"] = sum
-    print(A)
+    # if alpha[T-1]["END"] == 0:
+    #     print(alpha[T-1])
     return alpha
 
 
 def backward(A, B, states, obs):
     N = len(states)
     T = len(obs)
-    beta = [{}]*T
+    beta = [{} for i in range(T)]
     for i in states:
         beta[T-1][i] = A[(i, "END")]
-    for t in range(1, T-1):
+    for t in range(T-2, 0, -1):
         for i in states:
             sum = 0
             for j in states:
@@ -60,7 +64,10 @@ def backward(A, B, states, obs):
     for j in states:
         aVal = 0 if ("START",j) not in A else A[("START",j)]
         bVal = 0 if ("<s>", j) not in B else B[("<s>", j)]
-        sum += beta[t+1][j]*aVal*bVal*beta[0][j]
+        try:
+            sum += beta[t+1][j]*aVal*bVal*beta[0][j]
+        except:
+            print("DD")
     beta[0]["START"] = sum
     return beta
 
@@ -77,10 +84,10 @@ def forwardBackward(Obs, V, Q, A, B):
     T = len(Obs)
     N = len(Q)
 
-    gamma = [{}]*T
-    zeta = [{}]*T
-    aHat = {}
-    bHat = {}
+    gamma = [{} for i in range(T)]
+    zeta = [{} for i in range(T)]
+    aHat = A
+    bHat = B
 
     i = 100
     while not converged(i):
@@ -91,7 +98,7 @@ def forwardBackward(Obs, V, Q, A, B):
             for j in Q:
                 gamma[t][j] = (alpha[t][j]*beta[t][j])/alpha[-1]["END"]
                 for i in Q:
-                    zeta[(i,j)] = (alpha[t][i]*A[i][j]*B[(obs[t+1],j)]*beta[t+1][j])/alpha[T-1]["END"]
+                    zeta[(i,j)] = (alpha[t][i]*aHat[i][j]*bHat[(obs[t+1],j)]*beta[t+1][j])/alpha[T-1]["END"]
         #M-Step
         #ahat i j
         for i in Q:
@@ -147,7 +154,7 @@ def main():
             stateGraph.append(state[1])
     #stateGraph.remove("START")
     #stateGraph.remove("END")
-    obs = "The cat was orange .".split(" ")
+    obs = "The cat was orange .".lower().split(" ")
     V = set(stateGraph)
     Q = stateGraph
     ahat, bhat = forwardBackward(obs, V, Q, A, B)
