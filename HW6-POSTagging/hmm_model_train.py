@@ -7,14 +7,18 @@ from collections import Counter
 # states = dict of states
 
 def forward(A, B, states, obs):
+    aHat = A
+    bHat = B
+
     T = len(obs)
     N = len(states)
-    alpha = [{}]*J
+    alpha = [{}]*(T+2)
     for s in states:
 
         #TODO: FIX WITH UNK????
         aVal = 0 if ("START", s) not in A else A[("START", s)]
         bVal = 0 if (obs[0], s) not in B else B[(obs[0], s)]
+
         alpha[0][s] = aVal*bVal
     for t in range(1, N):
         for s in states:
@@ -60,7 +64,7 @@ def backward(A, states, obs):
 
 
 def converged(i):
-    return (100-i == 0)
+    return (1000-i == 0)
 
 # O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
 def forwardBackward(Obs, V, Q, A, B):
