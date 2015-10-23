@@ -129,6 +129,7 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
     B = Bmat
 
 
+    print(AllObs)
 
 
     count = 0
