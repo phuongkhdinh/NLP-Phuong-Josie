@@ -72,31 +72,30 @@ def forward(A, B, states, obs):
     sum = 0
     for s in states:
         aVal = A[(s, "END")]
-        sum += alpha[T-2][s]*aVal
-    alpha[T-1]["END"] = sum
+        sum += alpha[T-1][s]*aVal
+    #alpha[T-1]["END"] = sum
 
 
                             #     if s in alpha[T-1]:
                             #         aVal = A[(s, "END")]
                             #         sum = log_add([sum, alpha[T-1][s]+aVal])
                             # alpha[T-1]["END"] = sum
-    print(alpha[T-1]["END"])
-    return alpha
+    return alpha, sum
 
 
 def backward(A, B, states, obs):
     N = len(states)
     T = len(obs)
-    beta = [{} for i in range(T+2)]
+    beta = [{} for i in range(T)]
     for i in states:
         if A[(i, "END")] != 0:
-            beta[T+1][i] = A[(i, "END")]
-    for t in range(T, 0, -1):
+            beta[T-1][i] = A[(i, "END")]
+    for t in range(T-2, -1, -1):
         for i in states:
             sum = 0
             for j in states:
                 aVal = A[(i,j)]
-                bVal = B[(obs[t+1], j)]
+                bVal = B[(obs[t-1], j)]
                 sum += beta[t+1][j]*aVal*bVal
 
 
@@ -115,8 +114,9 @@ def backward(A, B, states, obs):
         aVal = A[("START",j)]
         bVal = B[(obs[0], j)]
 
-        sum += aVal*bVal*beta[1][j]
-    beta[0]["START"] = sum
+        sum += aVal*bVal*beta[0][j]
+
+    #beta[0]["START"] = sum
                     #if j in beta[0]:
                     #         aVal = A[("START",j)]
                     #         wd = obs[0]
@@ -126,7 +126,7 @@ def backward(A, B, states, obs):
                     #         sum = log_add([sum, aVal+bVal+beta[0][j]])
                     #
                     # beta[0]["START"] = sum
-    return beta
+    return beta, sum
 
 
 
@@ -162,12 +162,12 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
         aHat = A
         bHat = B
         ObsCount = 0
-        for Obs in AllObs[:2]:
+        for Obs in AllObs[2:]:
             ObsCount += 1
             if ObsCount%50==0:
                 print(ObsCount)
-            alpha = forward(A, B, Q, Obs)
-            beta = backward(A, B, Q, Obs)
+            alpha, alphaSum = forward(A, B, Q, Obs)
+            beta, betaSum = backward(A, B, Q, Obs)
             T = len(Obs)
             N = len(Q)
 
@@ -178,9 +178,13 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
             for t in range(T-1):
                 print("meow")
                 for j in Q:
-                    gamma[t][j] = (alpha[t][j]*beta[t][j])/alpha[-1]["END"]
+                    alpha[t][j]
+                    print(t)
+                    beta[t][j]
+                    print(t)
+                    gamma[t][j] = (alpha[t][j]*beta[t][j])/alphaSum
                     for i in Q:
-                        zeta[t][(i,j)] = (alpha[t][i]*aHat[(i,j)]*bHat[(Obs[t+1],j)]*beta[t+1][j])/alpha[T-1]["END"]
+                        zeta[t][(i,j)] = (alpha[t][i]*aHat[(i,j)]*bHat[(Obs[t+1],j)]*beta[t+1][j])/alphaSum
                             # if j in alpha[t] and j in beta[t]:
                             #     #print(beta[t][j])
                             #     gamma[t][j] = alpha[t][j] + beta[t][j] - alpha[-1]["END"]
