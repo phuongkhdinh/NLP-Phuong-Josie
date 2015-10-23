@@ -5,7 +5,7 @@ import sys
 import pickle
 from math import log, exp
 import time
-
+from decimal import *
 # A = tag1, tag2 : prob
 # B = word, tag : prob
 # states = dict of states
@@ -29,7 +29,6 @@ def forward(A, B, states, obs):
     T = len(obs)
     N = len(states)
     alpha = [{} for i in range(T)]
-
     for s in states:
         firstWord = obs[0]
         #if (firstWord,s) not in B: #We have the first word with this tag
@@ -41,45 +40,51 @@ def forward(A, B, states, obs):
 
         alpha[0][s] = aVal*bVal
 
-                            #
-                            # if aVal!= 0 and bVal != 0:
-                            #     alpha[0][s] = aVal + bVal
-
     for t in range(1, T):
         for s in states:
             sum = 0
+            all0 = True
+            a0 = True
+            b= True
+            al0= True
             for sPrime in states:
-                #aVal = 0.0001 if (sPrime,s) not in A else A[(sPrime,s)]
-                #bVal = 0.0001 if (obs[t], s) not in B else B[(obs[t], s)]
                 aVal = A[(sPrime, s)]
                 bVal = B[(obs[t], s)]
                 sum += alpha[t-1][sPrime]*aVal*bVal
-                            # if sPrime in alpha[t-1]:
-                            #     aVal = A[(sPrime,s)]
-                            #     sum += alpha[t-1][sPrime]*aVal
-                            #     sum = log_add([sum, alpha[t-1][sPrime]+aVal])
-                            # #print(alpha[t-1][sPrime], aVal, bVal)
-                            # # if bVal == 0:
-                            # #     print(obs[t], s)
-                            # word = obs[t]
-                            # #if (word, s) not in B:
-                            # #    word = "<UNK>"
-                            # bVal = B[(word, s)]
-                            # alpha[t][s] = sum + bVal
+                # if aVal != 0 and bVal != 0 and alpha[t-1][sPrime] != 0:
+                #     all0 = False
+
+                if aVal != 0:
+                    a0 = False
+                else:
+                    print("a/", sPrime,s)
+                if bVal != 0:
+                    b0 = False
+                else:
+                    print("B/", obs[t],s)
+                # if alpha[t-1][sPrime] != 0:
+                #     al0 = False
+
             alpha[t][s] = sum
-            print(sum)
+
+    for t in range(1,T):
+        sum = 0
+        for j in states:
+            sum += alpha[t][s]
+        #print(sum, t)
+        #print("mm")
+        if sum == 0:
+            #print(all0, a0, b0, al0)
+            print(T, t,s, sum, B[(obs[t], s)])
 
     sum = 0
     for s in states:
         aVal = A[(s, "END")]
         sum += alpha[T-1][s]*aVal
-    #alpha[T-1]["END"] = sum
-
-
-                            #     if s in alpha[T-1]:
-                            #         aVal = A[(s, "END")]
-                            #         sum = log_add([sum, alpha[T-1][s]+aVal])
-                            # alpha[T-1]["END"] = sum
+    if sum ==0:
+        for t in range(T):
+            print(alpha[t])
+        #print(alpha)
     return alpha, sum
 
 
@@ -88,8 +93,8 @@ def backward(A, B, states, obs):
     T = len(obs)
     beta = [{} for i in range(T)]
     for i in states:
-        if A[(i, "END")] != 0:
-            beta[T-1][i] = A[(i, "END")]
+
+        beta[T-1][i] = A[(i, "END")]
     for t in range(T-2, -1, -1):
         for i in states:
             sum = 0
@@ -126,6 +131,7 @@ def backward(A, B, states, obs):
                     #         sum = log_add([sum, aVal+bVal+beta[0][j]])
                     #
                     # beta[0]["START"] = sum
+
     return beta, sum
 
 
@@ -151,18 +157,35 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
     A = Amat
     B = Bmat
 
-
-    print(AllObs)
+    # #normalize A
+    # for i in Q:
+    #     #get sum of state 1
+    #     tot = 0
+    #     for j in  Q:
+    #         tot += A[(i,j)]
+    #     print(tot)
+    #     for j in Q:
+    #         A[(i,j)] = A[(i,j)]/tot
+    # #normalize B
+    # for i in Q:
+    #     #get sum of state
+    #     tot = 0
+    #     for j in V:
+    #         tot += B[(j, i)]
+    #     for j in V:
+    #         B[(j, i)] = B[(j, i)]/tot
 
 
     count = 0
     while notConverged(count):
-        count += 1000
+        count += 100
 
-        aHat = A
-        bHat = B
+
+        #init a hat and b hat to 0
+        aHat = Counter()
+        bHat = Counter()
         ObsCount = 0
-        for Obs in AllObs[2:]:
+        for Obs in AllObs[:int(len(AllObs)/10)]:
             ObsCount += 1
             if ObsCount%50==0:
                 print(ObsCount)
@@ -175,16 +198,17 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
             zeta = [{} for i in range(T)]
 
             #E-Step
-            for t in range(T-1):
-                print("meow")
+            for t in range(T):
+                #print("meow")
                 for j in Q:
                     alpha[t][j]
-                    print(t)
+                    #print(t)
                     beta[t][j]
-                    print(t)
+                    #print(t)
                     gamma[t][j] = (alpha[t][j]*beta[t][j])/alphaSum
                     for i in Q:
-                        zeta[t][(i,j)] = (alpha[t][i]*aHat[(i,j)]*bHat[(Obs[t+1],j)]*beta[t+1][j])/alphaSum
+                        if t < T-1:
+                            zeta[t][(i,j)] = (alpha[t][i]*A[(i,j)]*B[(Obs[t+1],j)]*beta[t+1][j])/alphaSum
                             # if j in alpha[t] and j in beta[t]:
                             #     #print(beta[t][j])
                             #     gamma[t][j] = alpha[t][j] + beta[t][j] - alpha[-1]["END"]
@@ -214,7 +238,7 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
                         for k in Q:
                             minidenom += zeta[t][(i,k)]
                         denomenator += minidenom
-                    aHat[(i,j)] = numerator/denomenator
+                    aHat[(i,j)] += numerator/denomenator
                                     #     if (i,j) in zeta[t]:
                                     #         numerator = log_add([numerator, zeta[t][(i,j)]])
                                     #         minidenom = _NEG_INF
@@ -234,7 +258,7 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
                         if Obs[t] == vK:
                             numerator += gamma[t][j]
                         denomenator += gamma[t][j]
-                    bHat[(vK, j)] = numerator/denomenator
+                    bHat[(vK, j)] += numerator/denomenator
                                     #     if j in gamma[t]:
                                     #         if Obs[t] == vK:
                                     #             numerator = log_add([numerator, gamma[t][j]])
@@ -242,7 +266,6 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
                                     #         denomenator = log_add([denomenator, gamma[t][j]])
                                     # bHat[(vK, j)] = numerator - denomenator
 
-        start = time.time()
 
         #normalize A
         for i in Q:
@@ -253,17 +276,21 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
             for j in Q:
                 A[(i,j)] = aHat[(i,j)]/tot
 
+        print(B)
         #normalize B
         for i in Q:
             #get sum of state
-            tot = []
+            tot = 0
             for j in V:
                 tot += bHat[(j, i)]
             for j in V:
                 B[(j, i)] = bHat[(j, i)]/tot
-        end = time.time()
-        print("time: ")
-        print(end - start)
+                print(B[(j, i)])
+
+        #print(B)
+        #print(B)
+        #print("time: ")
+        #print(end - start)
 
 
 
@@ -285,26 +312,33 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
 
 def main():
     print("Training in process. Please wait...")
-
+    getcontext().prec = 500
     with open('countmodel.dat', 'rb') as handle:
         matrixes = pickle.loads(handle.read())
-    states = matrixes["states"]
+    states = matrixes["allStates"]
     wds = matrixes["vocab"]
     if "<s>" in wds:
         del wds["<s>"]
     if "</s>" in wds:
         del wds["</s>"]
     vocab = list(wds.keys())
+
     dataSet = matrixes["allData"]
+
+    vcb = {}
+    for v in dataSet:
+        for o in v:
+            vcb[o] = 1
+    vocab = list(vcb.keys())
     if "START" in states:
         del states["START"]
     if "END" in states:
         del states["END"]
 
     states = list(states.keys())
-    print(states)
+    #print(states)
     bProb = 1/(len(vocab))
-    print(bProb)
+    #print(bProb)
     aProb = 1/(len(states)+1)
     A = Counter({})
     B = Counter({})
@@ -327,7 +361,7 @@ def main():
 
 
     aHat, bHat = forwardBackward(dataSet, V, Q, A, B)
-    print(bHat)
+    #print(bHat)
     hmmCountModel = {}
         
     with open("trainmodel.dat", "wb") as outFile:
