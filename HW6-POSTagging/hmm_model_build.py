@@ -155,6 +155,7 @@ def main():
         countModel["bMatrix"] = model.calcEmissionProbs()
         countModel["states"] = model.unigramPOSCounts
         countModel["vocab"] = model.words
+        countModel["vocab"].remove("<UNK>")
         countModel["allData"] = allObs
         #print(countModel["bMatrix"])
         pickle.dump(countModel, outFile)
