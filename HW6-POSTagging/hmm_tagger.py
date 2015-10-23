@@ -4,9 +4,11 @@ import sys
 import re
 import pickle
 import math
+from collections import Counter
 
-def Viterbi(obs, stateGraph, aMatrix, bMatrix):
-
+def Viterbi(obs, stateGraph, aMatrixDict, bMatrixDict):
+	aMatrix = Counter(aMatrixDict)
+	bMatrix = Counter(bMatrixDict)
 	N = len(stateGraph)
 	T = len(obs)
 	#viterbi = {}

@@ -101,6 +101,7 @@ def extractSets(filename):
     #Read data
     trainingSet = []
     testSet = []
+    lines = []
     with open(filename, "r") as f:
         lines = f.read().splitlines()
         for i in range(len(lines)-1):
@@ -110,7 +111,7 @@ def extractSets(filename):
             else:
                 trainingSet.append(lines[i])
 
-    return trainingSet, testSet
+    return trainingSet, testSet, lines
 
 def tokenizeSet(set):
     tokens = []
@@ -135,13 +136,18 @@ def main():
     print("Calculating HMM probabilities....")
     
     #TODO: COMMANDLINE ARG
-    trainingSet, testSet = extractSets("brown_tagged.dat") # extractSets(sys.argv[1])#
+    trainingSet, testSet, all = extractSets("brown_tagged.dat") # extractSets(sys.argv[1])#
     trainingTokens = tokenizeSet(trainingSet)
+    allTokens = tokenizeSet(all)
+    allObs = []
+    for obs in allTokens:
+        line = [x.word for x in obs if (x.word != "<s>" and x.word != "/<s>")]
+        allObs.append(line)
     model = CountHMM()
     model.getCounts(trainingTokens)
 
     countModel = {}
-        
+
     with open("countmodel.dat", "wb") as outFile:
         #outFile.write("<A>")
 
@@ -149,6 +155,7 @@ def main():
         countModel["bMatrix"] = model.calcEmissionProbs()
         countModel["states"] = model.unigramPOSCounts
         countModel["vocab"] = model.words
+        countModel["allData"] = allObs
         #print(countModel["bMatrix"])
         pickle.dump(countModel, outFile)
         # for bigram in A:

@@ -31,7 +31,7 @@ def forward(A, B, states, obs):
 
     for s in states:
         firstWord = obs[0]
-        if B[(firstWord, s)] == 0: #We have the first word with this tag
+        if (firstWord,s) not in B: #We have the first word with this tag
             firstWord = "<UNK>"
         #TODO: FIX WITH UNK????
         #aVal = 0.0001 if ("START", s) not in A else A[("START", s)]
@@ -54,7 +54,7 @@ def forward(A, B, states, obs):
                 # if bVal == 0:
                 #     print(obs[t], s)
             word = obs[t]
-            if B[(word, s)] == 0:
+            if (word, s) not in B:
                 word = "<UNK>"
             bVal = B[(word, s)]
             alpha[t][s] = sum + bVal
@@ -83,7 +83,10 @@ def backward(A, B, states, obs):
             for j in states:
                 if j in beta[t+1]:
                     aVal = A[(i,j)]
-                    bVal = B[(obs[t+1], j)]
+                    wd = obs[t+1]
+                    if (wd, j) not in B:
+                        wd = "<UNK>"
+                    bVal = B[(wd, j)]
                     sum = log_add([sum, beta[t+1][j]+aVal+bVal])
 
 
@@ -92,7 +95,10 @@ def backward(A, B, states, obs):
     for j in states:
         if j in beta[0]:
             aVal = A[("START",j)]
-            bVal = B[(obs[0], j)]
+            wd = obs[0]
+            if (obs[0], j) not in B:
+                wd = "<UNK>"
+            bVal = B[(wd, j)]
             sum = log_add([sum, aVal+bVal+beta[0][j]])
 
     beta[0]["START"] = sum
@@ -105,68 +111,115 @@ def notConverged(i):
     print(i)
     return (i<1000)
 
-# O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
-def forwardBackward(Obs, V, Q, A, B):
-    alpha = forward(A, B, Q, Obs)
-    beta = backward(A, B, Q, Obs)
-    T = len(Obs)
-    N = len(Q)
 
-    gamma = [{} for i in range(T)]
-    zeta = [{} for i in range(T)]
-    aHat = A
-    bHat = B
+# Steps:
+# init A, B
+# Iterate until convergence:
+#     init ahat, bhat = A, B
+#     for each obs in browncorpus:
+#         get alpha, beta
+#         get gamma, zeta
+#         using gamma, zeta, a, b, change ahat, bhat
+#     normalize ahat, bhat to be A, B
+
+
+# O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
+def forwardBackward(AllObs, V, Q, Amat, Bmat):
+    A = Amat
+    B = Bmat
+
+
+
 
     count = 0
     while notConverged(count):
-        count += 1
+        count += 1000
 
-        #E-Step
-        for t in range(T-1):
+        aHat = A
+        bHat = B
+        for Obs in AllObs:
+            alpha = forward(A, B, Q, Obs)
+            beta = backward(A, B, Q, Obs)
+            T = len(Obs)
+            N = len(Q)
+
+            gamma = [{} for i in range(T)]
+            zeta = [{} for i in range(T)]
+
+            #E-Step
+            for t in range(T-1):
+                for j in Q:
+                    if j in alpha[t] and j in beta[t]:
+                        #print(beta[t][j])
+                        gamma[t][j] = alpha[t][j] + beta[t][j] - alpha[-1]["END"]
+                        #print(gamma[t][j])
+                        for i in Q:
+                            if i in alpha[t] and j in beta[t+1]:
+                                # print((alpha[t][i]))
+                                # print(aHat[(i,j)])
+                                # print(bHat[(Obs[t+1],j)])
+                                # print(beta[t+1][j])
+                                # print(alpha[T-1]["END"])
+                                wd = Obs[t+1]
+
+                                if (wd, j) not in bHat:
+                                    wd = "<UNK>"
+                                zeta[t][(i,j)] = alpha[t][i] + aHat[(i,j)] + bHat[(wd,j)] + beta[t+1][j] - alpha[T-1]["END"]
+                            #print(zeta[t][(i,j)])
+            #M-Step
+            #ahat i j
+            for i in Q:
+                for j in Q:
+                    numerator = _NEG_INF
+                    denomenator = _NEG_INF
+                    for t in range(T-1):
+                        if (i,j) in zeta[t]:
+                            numerator = log_add([numerator, zeta[t][(i,j)]])
+                            minidenom = _NEG_INF
+                            for k in Q:
+                                #print(zeta[t][(i,k)])
+                                if (i,k) in zeta[t]:
+                                    minidenom = log_add([minidenom, zeta[t][(i,k)]])
+                            denomenator = log_add([denomenator, minidenom])
+                    aHat[(i,j)] = numerator-denomenator
+
+            #bhat
             for j in Q:
-                if j in alpha[t] and j in beta[t]:
-                    #print(beta[t][j])
-                    gamma[t][j] = alpha[t][j] + beta[t][j] - alpha[-1]["END"]
-                    #print(gamma[t][j])
-                    for i in Q:
-                        if i in alpha[t] and j in beta[t+1]:
-                            # print((alpha[t][i]))
-                            # print(aHat[(i,j)])
-                            # print(bHat[(Obs[t+1],j)])
-                            # print(beta[t+1][j])
-                            # print(alpha[T-1]["END"])
-                            zeta[t][(i,j)] = alpha[t][i] + aHat[(i,j)] + bHat[(Obs[t+1],j)] + beta[t+1][j] - alpha[T-1]["END"]
-                        #print(zeta[t][(i,j)])
-        #M-Step
-        #ahat i j
+                for vK in Obs:
+                    numerator = _NEG_INF
+                    denomenator = _NEG_INF
+                    for t in range(T):
+                        if j in gamma[t]:
+                            if Obs[t] == vK:
+                                numerator = log_add([numerator, gamma[t][j]])
+                            #print(denomenator, gamma[t][i])
+                            denomenator = log_add([denomenator, gamma[t][j]])
+                    bHat[(vK, j)] = numerator - denomenator
+
+        #normalize A
         for i in Q:
+            #get sum of state 1
+            tot = []
+            for j in  Q:
+                tot.append(aHat[(i,j)])
+            tot = log_add(tot)
             for j in Q:
-                numerator = _NEG_INF
-                denomenator = _NEG_INF
-                for t in range(T-1):
-                    if (i,j) in zeta[t]:
-                        numerator = log_add([numerator, zeta[t][(i,j)]])
-                        minidenom = _NEG_INF
-                        for k in Q:
-                            #print(zeta[t][(i,k)])
-                            if (i,k) in zeta[t]:
-                                minidenom = log_add([minidenom, zeta[t][(i,k)]])
-                        denomenator = log_add([denomenator, minidenom])
-                aHat[(i,j)] = numerator-denomenator
+                A[(i,j)] = aHat[(i,j)] - tot
 
-        #bhat
-        for j in Q:
-            for vK in Obs:
-                numerator = _NEG_INF
-                denomenator = _NEG_INF
-                for t in range(T):
-                    if j in gamma[t]:
-                        if Obs[t] == vK:
-                            numerator = log_add([numerator, gamma[t][j]])
-                        #print(denomenator, gamma[t][i])
-                        denomenator = log_add([denomenator, gamma[t][j]])
-                bHat[(vK, j)] = numerator - denomenator
-    return aHat, bHat
+        #normalize B
+        for i in Q:
+            #get sum of state
+            tot = []
+            for j in V:
+                tot.append(bHat[(j, i)])
+            tot = log_add(tot)
+            for j in V:
+                B[(j, i)] = bHat[(j, i)]- tot
+
+
+
+
+    return A, B
 
 
 
@@ -189,13 +242,14 @@ def main():
         matrixes = pickle.loads(handle.read())
     states = matrixes["states"]
     vocab = list(matrixes["vocab"].keys())
+    dataSet = matrixes["allData"]
     if "START" in states:
         del states["START"]
     if "END" in states:
         del states["END"]
     states = list(states.keys())
     print(states)
-    bProb = log(1/(len(obs)))
+    bProb = log(1/(len(vocab)))
     aProb = log(1/(len(states)+1))
     A = {}
     B = {}
@@ -213,13 +267,11 @@ def main():
         for state in states:
             B[(word,state)] = bProb
 
-
-    obs = "But Mr. Kennedy had become convinced that a personal confrontation is good .".lower().split(" ")
     V = vocab
     Q = states
 
 
-    aHat, bHat = forwardBackward(obs, V, Q, A, B)
+    aHat, bHat = forwardBackward(dataSet, V, Q, A, B)
     print(bHat)
     hmmCountModel = {}
         
