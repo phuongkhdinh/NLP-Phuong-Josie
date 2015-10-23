@@ -31,8 +31,8 @@ def forward(A, B, states, obs):
 
     for s in states:
         firstWord = obs[0]
-        if (firstWord,s) not in B: #We have the first word with this tag
-            firstWord = "<UNK>"
+        #if (firstWord,s) not in B: #We have the first word with this tag
+        #    firstWord = "<UNK>"
         #TODO: FIX WITH UNK????
         #aVal = 0.0001 if ("START", s) not in A else A[("START", s)]
         #bVal = 0.0001 if (obs[0], s) not in B else B[(obs[0], s)] # if Run on corpus, need to handle Unknown here
@@ -54,8 +54,8 @@ def forward(A, B, states, obs):
                 # if bVal == 0:
                 #     print(obs[t], s)
             word = obs[t]
-            if (word, s) not in B:
-                word = "<UNK>"
+            #if (word, s) not in B:
+            #    word = "<UNK>"
             bVal = B[(word, s)]
             alpha[t][s] = sum + bVal
 
@@ -84,8 +84,8 @@ def backward(A, B, states, obs):
                 if j in beta[t+1]:
                     aVal = A[(i,j)]
                     wd = obs[t+1]
-                    if (wd, j) not in B:
-                        wd = "<UNK>"
+                    #if (wd, j) not in B:
+                    #    wd = "<UNK>"
                     bVal = B[(wd, j)]
                     sum = log_add([sum, beta[t+1][j]+aVal+bVal])
 
@@ -96,8 +96,8 @@ def backward(A, B, states, obs):
         if j in beta[0]:
             aVal = A[("START",j)]
             wd = obs[0]
-            if (obs[0], j) not in B:
-                wd = "<UNK>"
+            #if (obs[0], j) not in B:
+            #    wd = "<UNK>"
             bVal = B[(wd, j)]
             sum = log_add([sum, aVal+bVal+beta[0][j]])
 
@@ -137,7 +137,11 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
 
         aHat = A
         bHat = B
+        ObsCount = 0
         for Obs in AllObs:
+            ObsCount += 1
+            if ObsCount%50==0:
+                print(ObsCount)
             alpha = forward(A, B, Q, Obs)
             beta = backward(A, B, Q, Obs)
             T = len(Obs)
@@ -162,8 +166,8 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat):
                                 # print(alpha[T-1]["END"])
                                 wd = Obs[t+1]
 
-                                if (wd, j) not in bHat:
-                                    wd = "<UNK>"
+                                #if (wd, j) not in bHat:
+                                #    wd = "<UNK>"
                                 zeta[t][(i,j)] = alpha[t][i] + aHat[(i,j)] + bHat[(wd,j)] + beta[t+1][j] - alpha[T-1]["END"]
                             #print(zeta[t][(i,j)])
             #M-Step
@@ -251,8 +255,8 @@ def main():
     print(states)
     bProb = log(1/(len(vocab)))
     aProb = log(1/(len(states)+1))
-    A = {}
-    B = {}
+    A = Counter({})
+    B = Counter({})
     for state in states:
         A[("START", state)] = aProb
 
