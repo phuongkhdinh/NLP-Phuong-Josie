@@ -66,11 +66,10 @@ def main():
 	for line in sys.stdin:
 		obs = line.lower().strip("\n").split(" ")
 
-	with open('countmodel.dat', 'rb') as handle:
+	with open(modelFile, 'rb') as handle:
 		matrixes = pickle.loads(handle.read())
 	aMatrix = matrixes["aMatrix"]
 	bMatrix = matrixes["bMatrix"]
-	print(aMatrix)
 
 	stateGraph = []
 	for state in aMatrix:
