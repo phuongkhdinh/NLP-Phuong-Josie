@@ -6,9 +6,83 @@ import pickle
 from math import log, exp
 import time
 from decimal import *
+import random
+
 # A = tag1, tag2 : prob
 # B = word, tag : prob
 # states = dict of states
+class Token:
+    def __init__(self, pos, word):
+        self.pos = pos
+        self.word = word.lower()
+class CountHMM:
+    def __init__(self):
+        return
+     ##
+        # Takes in a list of tokenized sentences and counts the total number of unigrams
+        # and bigrams. Also counts the frequency of each unigram and bigram
+
+    def getCounts(self, tokens):
+        self.bigramPOSCounts = Counter()
+        self.unigramPOSCounts = Counter()
+        self.wordWithTagCounts = Counter()
+        self.words = Counter()
+        self.words["<UNK>"] = 0
+        self.totalBigrams = 0
+        self.totalUnigrams = 0
+        pos1 = ""
+        pos2 = ""
+        obs = ""
+        for token in tokens:
+            self.totalBigrams += (len(token) - 1)
+            self.totalUnigrams += len(token)
+            for i in range(len(token) - 1):
+                pos1 = token[i].pos
+                pos2 = token[i+1].pos
+                obs = token[i].word
+                #if obs == "START":
+                    #print("SHRW")
+                if obs not in self.words:
+                    self.words["<UNK>"] += 1
+                    self.words[obs] = 0
+                    obs = "<UNK>"
+
+                if pos1 in self.unigramPOSCounts:
+                    self.unigramPOSCounts[pos1] += 1
+                    if obs != '<s>':
+                        self.wordWithTagCounts[(obs, pos1)] += 1
+                else:
+                    self.unigramPOSCounts[pos1] = 1
+                    if obs != '<s>':
+                        self.wordWithTagCounts[(obs, pos1)] = 1
+                if (pos1, pos2) in self.bigramPOSCounts:
+                    self.bigramPOSCounts[(pos1, pos2)] += 1
+                else:
+                    self.bigramPOSCounts[(pos1, pos2)] = 1
+            if pos2 == 'END':
+                pass
+                #print("huh")
+                # self.wordWithTagCounts[('</s>', pos2)] += 1
+                # if pos2 in self.unigramPOSCounts:
+                #     self.unigramPOSCounts[pos2] += 1
+                # else:
+                #     self.unigramPOSCounts[pos2] = 1
+
+    def calcTransitionProbs(self):
+        self.transitionProbs = Counter({})        
+        for bigram in self.bigramPOSCounts:
+
+          self.transitionProbs[bigram] = log(self.bigramPOSCounts[bigram]) - log(self.unigramPOSCounts[bigram[0]])
+        #print(self.transitionProbs[bigram])
+        return self.transitionProbs
+          
+    def calcEmissionProbs(self):       
+        self.emissionProbs = Counter({})        
+        for tuple in self.wordWithTagCounts:
+            self.emissionProbs[tuple] = log(self.wordWithTagCounts[tuple]) - log(self.unigramPOSCounts[tuple[1]])
+        #print(self.transitionProbs[bigram])
+        return self.emissionProbs
+        
 
 def checkUnderflow(pieces, otherinfo):
     s = 1
@@ -267,84 +341,95 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
 #         using gamma, zeta, a, b, change ahat, bhat
 #     normalize ahat, bhat to be A, B
 
+def extractSets(filename):
+    #Read data
+    trainingSet = []
+    initialSet = []
+    with open(filename, "r") as f:
+        lines = f.read().splitlines()
+        for i in range(len(lines)-1):
+            r = random.random()
+            if r < 0.1:
+                initialSet.append(lines[i])
+            elif r>0.9:
+                trainingSet.append(lines[i])
+
+    return trainingSet, initialSet, lines
+
+def tokenizeSet(sets):
+    tokens = []
+    for sentence in sets:
+        tokens.append(tokenize(sentence))
+    return tokens
+
+def tokenize(sentence):
+    tokens = [Token("START", "<s>")]
+    words = (sentence.split(" "))
+    for word in words[:-1]:
+        tkn = word.rsplit("/", 1)
+        token = Token(tkn[1], tkn[0])
+        tokens.append(token)
+    tokens.append(Token("END", "</s>"))
+    return tokens
 
 def main():
     print("Training in process. Please wait...")
-    with open('countmodel.dat', 'rb') as handle:
-        matrixes = pickle.loads(handle.read())
-    states = matrixes["states"]
-    wds = matrixes["vocab"]
-    if "<s>" in wds:
-        del wds["<s>"]
-    if "</s>" in wds:
-        del wds["</s>"]
-    vocab = list(wds.keys())
 
-    dataSet = matrixes["allData"]
+    trainingSet, initialSet, allObs = extractSets("brown_tagged.dat")
+    # Use initial set to generate guess of A and B
+    initialTokens = tokenizeSet(initialSet) 
+    model = CountHMM()
+    model.getCounts(initialTokens)
 
-    vcb = {}
-    for v in dataSet:
-        for o in v:
-            vcb[o] = 1
-    vocab = list(vcb.keys())
-    if "START" in states:
-        del states["START"]
-    if "END" in states:
-        del states["END"]
+    #Generate all vocabs
+    V = set()
+    vocabs = tokenizeSet(allObs)
+    for vocab in vocabs:
+        for v in vocab:
+            V.add(v.word)
+    #print(V)
+    V.remove("</s>")
+    V.remove("<s>")
+    #Cal initial A,B,Q
+    Atemp = Counter({})
+    Pitemp = Counter({})
+    completeTranmission = model.calcTransitionProbs()
+    for transition in completeTranmission:
+        if transition[0] == 'START':
+            Pitemp[transition[1]] = completeTranmission[transition]
+        else:
+            Atemp[transition] = completeTranmission[transition]
+    Btemp = model.calcEmissionProbs()
+    tmp = model.unigramPOSCounts
+    del tmp["START"]
+    del tmp["END"]
+    Q = list(tmp.keys())
 
-    states = list(states.keys())
-    bProb = 1/(len(vocab))
-    aProb = 1/(len(states)+1)
+
+    trainingSet = tokenizeSet(trainingSet) 
+    trainingObs = []
+    for obs in trainingSet:
+        line = [x.word for x in obs if (x.word != "<s>" and x.word != "</s>")]
+        trainingObs.append(line)
+
+    #print()
+    #sys.exit()
     A = Counter()
+    for item in Atemp:
+        #print(item)
+        A[item] = exp(Atemp[item]) 
+
     B = Counter()
+    for item in Btemp:
+        B[item] = exp(Btemp[item]) 
+
     Pi = Counter()
-    for state in states:
-        Pi[state] = aProb
+    for item in Pitemp:
+        Pi[item] = exp(Pitemp[item]) 
 
-    for state1 in states:
-        for state2 in states:
-            A[(state1, state2)] = aProb
-    for state in states:
-        A[(state, "END")] = aProb
+    #print(Pi)
 
-    #word given tag
-    for word in vocab:
-        for state in states:
-            B[(word,state)] = bProb
-    # print(B)
-
-    V = vocab
-    Q = states
-
-
-    V = ["N", "E"]
-    Q = ["S1", "S2"]
-    Pi = Counter()
-    Pi["S1"] = 0.2
-    Pi["S2"] = 0.8
-    A = Counter()
-    B = Counter()
-    A[("S1", "S2")] = 0.5
-    A[("S1", "S1")] = 0.5
-    A[("S2", "S1")] = 0.3
-    A[("S2", "S2")] = 0.7
-
-    B[("N", "S1")] = 0.3
-    B[("N", "S2")] = 0.8
-    B[("E", "S1")] = 0.7
-    B[("E", "S2")] = 0.2
-
-    m = "NN,NN,NN,NN,NE,EE,EN,NN,NN"
-    b = m.split(",")
-    dataSet = []
-    for i in b:
-        sdd = []
-        for c in i:
-            if c == 'N' or c == 'E':
-                sdd.append(c)
-        dataSet.append(sdd)
-    print(dataSet)
-    aHat, bHat = forwardBackward(dataSet, V, Q, A, B, Pi)
+    aHat, bHat = forwardBackward(trainingObs, V, Q, A, B, Pi)
 
     print(aHat)
     print(bHat)
