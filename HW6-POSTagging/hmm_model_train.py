@@ -6,9 +6,78 @@ import pickle
 from math import log, exp
 import time
 from decimal import *
+import random
+
 # A = tag1, tag2 : prob
 # B = word, tag : prob
 # states = dict of states
+class Token:
+    def __init__(self, pos, word):
+        self.pos = pos
+        self.word = word.lower()
+class CountHMM:
+    def __init__(self):
+        return
+     ##
+        # Takes in a list of tokenized sentences and counts the total number of unigrams
+        # and bigrams. Also counts the frequency of each unigram and bigram
+
+    def getCounts(self, tokens):
+        self.bigramPOSCounts = Counter()
+        self.unigramPOSCounts = Counter()
+        self.wordWithTagCounts = Counter()
+        self.words = Counter()
+        self.words["<UNK>"] = 0
+        self.totalBigrams = 0
+        self.totalUnigrams = 0
+        pos1 = ""
+        pos2 = ""
+        obs = ""
+        for token in tokens:
+            self.totalBigrams += (len(token) - 1)
+            self.totalUnigrams += len(token)
+            for i in range(len(token) - 1):
+                pos1 = token[i].pos
+                pos2 = token[i+1].pos
+                obs = token[i].word
+                #if obs == "START":
+                    #print("SHRW")
+                if obs not in self.words:
+                    self.words["<UNK>"] += 1
+                    self.words[obs] = 0
+                    obs = "<UNK>"
+
+                if pos1 in self.unigramPOSCounts:
+                    self.unigramPOSCounts[pos1] += 1
+                    if obs != '<s>':
+                        self.wordWithTagCounts[(obs, pos1)] += 1
+                else:
+                    self.unigramPOSCounts[pos1] = 1
+                    if obs != '<s>':
+                        self.wordWithTagCounts[(obs, pos1)] = 1
+                if (pos1, pos2) in self.bigramPOSCounts:
+                    self.bigramPOSCounts[(pos1, pos2)] += 1
+                else:
+                    self.bigramPOSCounts[(pos1, pos2)] = 1
+            if pos2 == 'END':
+                pass
+
+
+    def calcTransitionProbs(self):
+        self.transitionProbs = Counter({})        
+        for bigram in self.bigramPOSCounts:
+
+          self.transitionProbs[bigram] = log(self.bigramPOSCounts[bigram]) - log(self.unigramPOSCounts[bigram[0]])
+        #print(self.transitionProbs[bigram])
+        return self.transitionProbs
+          
+    def calcEmissionProbs(self):       
+        self.emissionProbs = Counter({})        
+        for tuple in self.wordWithTagCounts:
+            self.emissionProbs[tuple] = log(self.wordWithTagCounts[tuple]) - log(self.unigramPOSCounts[tuple[1]])
+        #print(self.transitionProbs[bigram])
+        return self.emissionProbs
+        
 
 def checkUnderflow(pieces, otherinfo):
     s = 1
@@ -77,7 +146,7 @@ def backward(A, B, Pi, states, obs):
 
 
 def notConverged(i):
-    return (i<100)
+    return (i<10)
 
 
 # Steps:
@@ -115,8 +184,10 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
         bHat = Counter()
         piHat = Counter()
         ObsCount = 0
-        for Obs in AllObs:
+        for Obs in AllObs[:100]:
             ObsCount += 1
+
+            #if ObsCount % 50 == 0:
 
             alpha, alphaSum = forward(A, B,Pi, Q, Obs)
             beta, betaSum = backward(A, B, Pi, Q, Obs)
@@ -200,9 +271,15 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
         A[("START", i)] = Pi[i]
     for i in Q:
         for j in Q:
-            A[(i,j)] = log(A[(i,j)])
+            if A[(i,j)] == 0:
+                A[(i,j)] = 0
+            else:
+                A[(i,j)] = log(A[(i,j)])
         for j in V:
-            B[(j, i)] = log(B[(j, i)])
+            if B[(j,i)] == 0:
+                B[(j,i)] = 0
+            else:
+                B[(j, i)] = log(B[(j, i)])
     return A, B
 
 
@@ -217,61 +294,148 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
 #         using gamma, zeta, a, b, change ahat, bhat
 #     normalize ahat, bhat to be A, B
 
+def extractSets(filename):
+    #Read data
+    trainingSet = []
+    initialSet = []
+    with open(filename, "r") as f:
+        lines = f.read().splitlines()
+        for i in range(len(lines)-1):
+            r = random.random()
+            if r < 0.1:
+                initialSet.append(lines[i])
+            elif r>0.9:
+                trainingSet.append(lines[i])
+
+    return trainingSet, initialSet, lines
+
+def tokenizeSet(sets):
+    tokens = []
+    for sentence in sets:
+        tokens.append(tokenize(sentence))
+    return tokens
+
+def tokenize(sentence):
+    tokens = [Token("START", "<s>")]
+    words = (sentence.split(" "))
+    for word in words[:-1]:
+        tkn = word.rsplit("/", 1)
+        token = Token(tkn[1], tkn[0])
+        tokens.append(token)
+    tokens.append(Token("END", "</s>"))
+    return tokens
 
 def main():
     print("Training in process. Please wait...")
-    with open('countmodel.dat', 'rb') as handle:
-        matrixes = pickle.loads(handle.read())
-    states = matrixes["states"]
-    wds = matrixes["vocab"]
-    if "<s>" in wds:
-        del wds["<s>"]
-    if "</s>" in wds:
-        del wds["</s>"]
 
 
-    vocab = list(wds.keys())
-    dataSet = matrixes["allData"]
+    trainingSet, initialSet, allObs = extractSets("brown_tagged.dat")
+    # Use initial set to generate guess of A and B
+    initialTokens = tokenizeSet(initialSet) 
+    model = CountHMM()
+    model.getCounts(initialTokens)
 
-    vcb = {}
-    for v in dataSet:
-        for o in v:
-            vcb[o] = 1
-    vocab = list(vcb.keys())
-    if "START" in states:
-        del states["START"]
-    if "END" in states:
-        del states["END"]
+    #Generate all vocabs
+    V = set()
+    vocabs = tokenizeSet(allObs)
+    for vocab in vocabs:
+        for v in vocab:
+            V.add(v.word)
+    #print(V)
+    V.remove("</s>")
+    V.remove("<s>")
+    #Cal initial A,B,Q
+    Atemp = Counter({})
+    Pitemp = Counter({})
+    completeTranmission = model.calcTransitionProbs()
+    for transition in completeTranmission:
+        if transition[0] == 'START':
+            Pitemp[transition[1]] = completeTranmission[transition]
+        else:
+            Atemp[transition] = completeTranmission[transition]
+    Btemp = model.calcEmissionProbs()
+    tmp = model.unigramPOSCounts
+    del tmp["START"]
+    del tmp["END"]
+    Q = list(tmp.keys())
 
-    states = list(states.keys())
-    bProb = 1/(len(vocab))
-    aProb = 1/(len(states)+1)
+
+    trainingSet = tokenizeSet(trainingSet) 
+    trainingObs = []
+    for obs in trainingSet:
+        line = [x.word for x in obs if (x.word != "<s>" and x.word != "</s>")]
+        trainingObs.append(line)
+
+
     A = Counter()
+    for item in Atemp:
+        #print(item)
+        A[item] = exp(Atemp[item]) 
+
     B = Counter()
+    for item in Btemp:
+        B[item] = exp(Btemp[item]) 
+
     Pi = Counter()
-    for state in states:
-        Pi[state] = aProb
-
-    for state1 in states:
-        for state2 in states:
-            A[(state1, state2)] = aProb
-    for state in states:
-        A[(state, "END")] = aProb
-
-    #word given tag
-    for word in vocab:
-        for state in states:
-            B[(word,state)] = bProb
-    # print(B)
-
-    V = vocab
-    Q = states
+    for item in Pitemp:
+        Pi[item] = exp(Pitemp[item]) 
 
 
-    aHat, bHat = forwardBackward(dataSet, V, Q, A, B, Pi)
+    N = len(Q)
+    for i in Q:
+        #get sum of state 1
+        tot = 0
+        zerot = 0
+        for j in  Q:
+            if A[(i,j)] == 0:
+                zerot += 1
+            tot += A[(i,j)]
+        for j in Q:
+            if tot != 0:
+                if A[(i,j)] != 0:
+                    if zerot != 0:
+                        A[(i,j)] = A[(i,j)]*.9
+                else:
+                    A[(i,j)] = .1/zerot
+            else:
+                A[(i,j)] = 1/N
 
-    print(aHat)
-    print(bHat)
+
+    for i in Q:
+        #get sum of state 1
+        tot = 0
+        zerot = 0
+        for j in  V:
+            if B[j,i] == 0:
+                zerot += 1
+            tot += B[(j,i)]
+        for j in V:
+            if tot != 0:
+                if B[(j,i)] != 0:
+                    if zerot != 0:
+                        B[(j,i)] = B[(j,i)]*.5
+                else:
+                    B[(j,i)] = .5/zerot
+            else:
+                B[(i,j)] = 1/N
+
+    tot = 0
+    zerot = 0
+    for i in Q:
+        if Pi[i] == 0:
+            zerot += 1
+        tot += Pi[i]
+    for i in Q:
+        if tot != 0:
+            if Pi[i] != 0:
+                if zerot != 0:
+                    Pi[i] = .9*Pi[i]
+            else:
+                Pi[i] = .1/zerot
+        else:
+            Pi[i] = 1/N
+    aHat, bHat = forwardBackward(trainingObs, V, Q, A, B, Pi)
+
     hmmCountModel = {}
         
     with open("trainmodel.dat", "wb") as outFile:
@@ -281,6 +445,6 @@ def main():
         pickle.dump(hmmCountModel, outFile)
 
 
-        print("Training completed. Saving to model.dat")
+        print("Training completed. Saving to trainmodel.dat")
 
 main()
