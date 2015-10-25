@@ -34,7 +34,6 @@ def forward(A, B, Pi, states, obs):
 
         bVal = B[(firstWord, s)]
         alpha[1][s] = Pi[s]*bVal
-    #print(Pi)
     for t in range(1, T):
         for j in states:
             summa = 0
@@ -45,7 +44,6 @@ def forward(A, B, Pi, states, obs):
 
             alpha[t+1][j] = summa*bVal
 
-    #print(alpha)
     sum = 0
     for j in states:
         sum += alpha[T][j]
@@ -81,8 +79,7 @@ def backward(A, B, Pi, states, obs):
 
 
 def notConverged(i):
-    print(i)
-    return (i<1000)
+    return (i<100)
 
 
 # Steps:
@@ -98,35 +95,39 @@ def notConverged(i):
 
 # O = Obs, V = Output vocab, Q = Hidden states (POS), A = transition, B = emission
 def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
+
+
     A = Amat
     B = Bmat
     Pi = Pimat
 
 
     count = 0
-
+    for Obs in AllObs:
+        Obs.insert(0, "")
     while notConverged(count):
-        count += 100
-
+        count += 1
+        if count % 10 == 0:
+            print(A,B)
 
         #init a hat and b hat to 0
         aHat = Counter()
         bHat = Counter()
+        piHat = Counter()
         ObsCount = 0
         obsProbSum = 0
-        for Obs in AllObs[int(len(AllObs)/10):int(len(AllObs)/10)+10]:
-            Obs.insert(0,"")
+        for Obs in AllObs:
+        #for Obs in AllObs[:10]:
             ObsCount += 1
-            if ObsCount%50==0:
-                print(ObsCount)
+
 
 
             alpha, alphaSum = forward(A, B,Pi, Q, Obs)
             beta, betaSum = backward(A, B, Pi, Q, Obs)
 
 
-            if alphaSum != betaSum:
-                print(count, alphaSum, betaSum)
+            # if alphaSum != betaSum:
+            #     print(count, alphaSum, betaSum)
                 #sys.exit()
 
 
@@ -166,6 +167,7 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
             gamma = [{} for i in range(T+1)]
             zeta = [{} for i in range(T+1)]
 
+
             #E-Step
             for t in range(1,T+1):
                 for j in Q:
@@ -192,7 +194,7 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
 
             #bhat
             for j in Q:
-                for vK in Obs:
+                for vK in V:
                     numerator = 0
                     denomenator = 0
                     for t in range(1,T+1):
@@ -200,6 +202,9 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
                             numerator += gamma[t][j]
                         denomenator += gamma[t][j]
                     bHat[(vK, j)] += numerator/denomenator
+
+            for i in Q:
+                piHat[i] += gamma[1][i]
 
         # print("________________")
         # #print(A)
@@ -218,6 +223,7 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
         # totstart = 0
         # totend = 0
         #
+
         for i in Q:
             #get sum of state 1
             tot = 0
@@ -238,9 +244,15 @@ def forwardBackward(AllObs, V, Q, Amat, Bmat, Pimat):
             for j in V:
                 if tot != 0:
                  B[(j, i)] = bHat[(j, i)]/tot
+        tot = 0
+        for i in Q:
+            tot += piHat[i]
+        for i in Q:
+            Pi[i] = piHat[i]/tot
 
 
-  # print(A, B)
+
+
     return A, B
 
 
@@ -260,7 +272,7 @@ def main():
     print("Training in process. Please wait...")
     with open('countmodel.dat', 'rb') as handle:
         matrixes = pickle.loads(handle.read())
-    states = matrixes["allStates"]
+    states = matrixes["states"]
     wds = matrixes["vocab"]
     if "<s>" in wds:
         del wds["<s>"]
@@ -299,13 +311,43 @@ def main():
     for word in vocab:
         for state in states:
             B[(word,state)] = bProb
-    print(B)
+    # print(B)
 
     V = vocab
     Q = states
 
 
+    V = ["N", "E"]
+    Q = ["S1", "S2"]
+    Pi = Counter()
+    Pi["S1"] = 0.2
+    Pi["S2"] = 0.8
+    A = Counter()
+    B = Counter()
+    A[("S1", "S2")] = 0.5
+    A[("S1", "S1")] = 0.5
+    A[("S2", "S1")] = 0.3
+    A[("S2", "S2")] = 0.7
+
+    B[("N", "S1")] = 0.3
+    B[("N", "S2")] = 0.8
+    B[("E", "S1")] = 0.7
+    B[("E", "S2")] = 0.2
+
+    m = "NN,NN,NN,NN,NE,EE,EN,NN,NN"
+    b = m.split(",")
+    dataSet = []
+    for i in b:
+        sdd = []
+        for c in i:
+            if c == 'N' or c == 'E':
+                sdd.append(c)
+        dataSet.append(sdd)
+    print(dataSet)
     aHat, bHat = forwardBackward(dataSet, V, Q, A, B, Pi)
+
+    print(aHat)
+    print(bHat)
     hmmCountModel = {}
         
     with open("trainmodel.dat", "wb") as outFile:
